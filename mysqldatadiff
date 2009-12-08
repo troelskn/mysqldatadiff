@@ -1,0 +1,42 @@
+#!/bin/bash
+[ $MYSQL_CONNECT ] || MYSQL_CONNECT="--user root --host localhost"
+[ $TMPDB1 ] || TMPDB1=mysqldatadiff_tmp1
+[ $TMPDB2 ] || TMPDB2=mysqldatadiff_tmp2
+[ $SKIP ] || SKIP="/(flood|cache)/"
+if [ $# = 2 ]
+then
+    if [ ! -f "$1" ]
+    then
+        echo "Can't read input file '$1'"
+        exit -1
+    fi
+
+    if [ ! -f "$2" ]
+    then
+        echo "Can't read input file '$2'"
+        exit -1
+    fi
+
+    echo "drop database if exists $TMPDB1; drop database if exists $TMPDB2;" | mysql $MYSQL_CONNECT
+    echo "create database $TMPDB1; create database $TMPDB2;" | mysql $MYSQL_CONNECT
+    mysql $MYSQL_CONNECT $TMPDB1 < $1
+    mysql $MYSQL_CONNECT $TMPDB2 < $2
+else
+    echo "USAGE: $(basename $0) dump1.sql dump2.sql"
+    echo "  Options: (Specify as ENV parameters)"
+    echo "    MYSQL_CONNECT   Mysql connection credentials."
+    echo "    SKIP            Tables to skip. Perl compatible regexp."
+    echo "    TMPDB1          Temporary mysqldb to use for diff"
+    echo "    TMPDB2          Temporary mysqldb to use for diff"
+    exit 0
+fi
+
+
+TMP1=`tempfile`
+TMP2=`tempfile`
+./mysqljsondump $MYSQL_CONNECT --database $TMPDB1 --skip-tables $SKIP > $TMP1
+./mysqljsondump $MYSQL_CONNECT --database $TMPDB2 --skip-tables $SKIP > $TMP2
+diff -U 0 $TMP1 $TMP2 | ./mysqljsondiff
+rm $TMP1
+rm $TMP2
+echo "drop database $TMPDB1; drop database $TMPDB2;" | mysql $MYSQL_CONNECT

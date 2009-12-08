@@ -1,0 +1,92 @@
+#!/usr/bin/php
+<?php
+// dump database as json file, with one row per line in file
+
+function parse_console($argv = null) {
+  $argv = isset($argv) ? $argv : $_SERVER['argv'];
+  $basename = array_shift($argv);
+  $arguments = array();
+  $options = array();
+  $switches = array();
+  $tmp = null;
+  foreach ($argv as $arg) {
+    if (preg_match('/^--([^=]+)=(.*)$/', $arg, $reg)) {
+      // flush
+      if ($tmp !== null) {
+        $switches[$tmp] = true;
+        $tmp = null;
+      }
+      // --foo=bar
+      $options[$reg[1]] = $reg[2];
+    } elseif (preg_match('/^--([^=]+)$/', $arg, $reg)) {
+      // flush
+      if ($tmp !== null) {
+        $switches[$tmp] = true;
+        $tmp = null;
+      }
+      // --foo
+      $tmp = $reg[1];
+    } elseif (preg_match('/^-([^=]+)$/', $arg, $reg)) {
+      // flush
+      if ($tmp !== null) {
+        $switches[$tmp] = true;
+        $tmp = null;
+      }
+      // -f
+      if (strlen($reg[1]) > 1) {
+        for ($ii=0; $ii < $reg[1]; ++$ii) {
+          $switches[$reg[1][$ii]] = true;
+        }
+      } else {
+        $tmp = $reg[1];
+      }
+    } elseif ($tmp !== null) {
+      // option-value
+      $options[$tmp] = $arg;
+      $tmp = null;
+    } else {
+      $arguments[] = $tmp;
+    }
+  }
+  // flush
+  if ($tmp !== null) {
+    $switches[$tmp] = true;
+    $tmp = null;
+  }
+  return array($basename, $arguments, $options, $switches);
+}
+
+list($basename, $arguments, $options, $switches) = parse_console();
+
+if (!isset($options['user']) || !isset($options['host']) || !isset($options['database']) || (isset($options['skip-tables']) && isset($options['tables']))) {
+  echo "USAGE:\n";
+  echo "  $basename --user USER --host HOST --database DATABASE [--pass PASS] [--just-tables REGEXP|--skip-tables REGEXP]\n";
+  exit -1;
+}
+
+$USER = $options['user'];
+$HOST = $options['host'];
+$PASS = isset($options['pass']) ? $options['pass'] : null;
+$DATABASE = $options['database'];
+$SKIP_TABLES = isset($options['skip-tables']) ? $options['skip-tables'] : '/^$/';
+$ONLY_TABLES = isset($options['just-tables']) ? $options['just-tables'] : '/^.*$/';
+
+mysql_connect($HOST, $USER, $PASS);
+mysql_select_db($DATABASE);
+mysql_query('SET NAMES UTF8');
+$result = mysql_query('SHOW TABLES');
+$TABLES = array();
+while ($row = mysql_fetch_array($result)) {
+  if (!preg_match($SKIP_TABLES, $row[0]) && preg_match($ONLY_TABLES, $row[0])) {
+    $TABLES[] = $row[0];
+  }
+}
+mysql_free_result($result);
+sort($TABLES);
+foreach ($TABLES as $table) {
+  $result = mysql_query('SELECT * FROM `'.$table.'`');
+  while ($row = mysql_fetch_assoc($result)) {
+    $row['$table'] = $table;
+    echo json_encode($row), "\n";
+  }
+}

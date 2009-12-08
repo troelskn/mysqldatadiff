@@ -1,0 +1,37 @@
+#!/usr/bin/php
+<?php
+// reads a diff over json data, generated with `diff -U 0 dump1.json dump2.json | ./mysqljsondiff`
+// outputs sql statements as sql-patchfile
+$stdin = new SplFileObject("php://stdin");
+while (!$stdin->eof()) {
+  $line = $stdin->current();
+  if (preg_match('/^([+-])([^+-]+.*)$/', $line, $reg)) {
+    $row = json_decode($reg[2], true);
+    if ($reg[1] === '+') {
+      // insert
+      $buffer = array();
+      foreach ($row as $column => $value) {
+        if ($column !== '$table') {
+          if ($value === null) {
+            $buffer[] = "`".$column."` = null";
+          } else {
+            $buffer[] = "`".$column."` = '" . addslashes($value)."'";
+          }
+        }
+      }
+      echo "INSERT INTO `", $row['$table'], "` SET ", implode(", ", $buffer), ";\n";
+    } else {
+      // delete
+      $buffer = array();
+      foreach ($row as $column => $value) {
+        if ($column !== '$table') {
+          if ($value !== null) {
+            $buffer[] = "`".$column."` = '" . addslashes($value)."'";
+          }
+        }
+      }
+      echo "DELETE FROM `", $row['$table'], "` WHERE ", implode(" AND ", $buffer), ";\n";
+    }
+  }
+  $stdin->next();
+}

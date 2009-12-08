@@ -1,0 +1,7 @@
+    USAGE: mysqldatadiff dump1.sql dump2.sql
+      Options: (Specify as ENV parameters)
+        MYSQL_CONNECT   Mysql connection credentials.
+        SKIP            Tables to skip. Perl compatible regexp.
+        TMPDB1          Temporary mysqldb to use for diff
+        TMPDB2          Temporary mysqldb to use for diff
+

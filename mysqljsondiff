@@ -20,7 +20,7 @@ function sql_insert($row) {
   foreach ($row as $column => $value) {
     if ($column !== '$table' && $column !== '$unique') {
       if ($value === null) {
-        $buffer[] = "`".$column."` = null";
+        $buffer[] = "`".$column."` = NULL";
       } else {
         $buffer[] = "`".$column."` = '" . addslashes($value)."'";
       }
@@ -30,8 +30,30 @@ function sql_insert($row) {
 }
 
 function sql_update($from, $to) {
-  // TODO
-  return "--- UPDATE:\n" . sql_delete($from) . sql_insert($to) . "---\n";
+  if (serialize($from) === serialize($to)) {
+    // not sure how this happens ...
+    return "";
+  }
+  $values = array();
+  $conditions = array();
+  foreach ($to as $column => $value) {
+    if ($column !== '$table' && $column !== '$unique') {
+      if ($from[$column] === $value) {
+        if ($value === null) {
+          $conditions[] = "`".$column."` IS NULL";
+        } else {
+          $conditions[] = "`".$column."` = '" . addslashes($value)."'";
+        }
+      } else {
+        if ($value === null) {
+          $values[] = "`".$column."` = NULL";
+        } else {
+          $values[] = "`".$column."` = '" . addslashes($value)."'";
+        }
+      }
+    }
+  }
+  return "UPDATE `" . $from['$table'] . "` SET " . implode(", ", $values) . " WHERE " . implode(" AND ", $conditions) .  ";\n";
 }
 
 $stdin = new SplFileObject("php://stdin");

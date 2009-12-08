@@ -2,35 +2,61 @@
 <?php
 // reads a diff over json data, generated with `diff -U 0 dump1.json dump2.json | ./mysqljsondiff`
 // outputs sql statements as sql-patchfile
+
+function sql_delete($row) {
+  $buffer = array();
+  foreach ($row as $column => $value) {
+    if ($column !== '$table' && $column !== '$unique') {
+      if ($value !== null) {
+        $buffer[] = "`".$column."` = '" . addslashes($value)."'";
+      }
+    }
+  }
+  return "DELETE FROM `" . $row['$table'] . "` WHERE " . implode(" AND ", $buffer) .  ";\n";
+}
+
+function sql_insert($row) {
+  $buffer = array();
+  foreach ($row as $column => $value) {
+    if ($column !== '$table' && $column !== '$unique') {
+      if ($value === null) {
+        $buffer[] = "`".$column."` = null";
+      } else {
+        $buffer[] = "`".$column."` = '" . addslashes($value)."'";
+      }
+    }
+  }
+  return "INSERT INTO `" . $row['$table'] . "` SET " . implode(", ", $buffer) . ";\n";
+}
+
+function sql_update($from, $to) {
+  // TODO
+  return "--- UPDATE:\n" . sql_delete($from) . sql_insert($to) . "---\n";
+}
+
 $stdin = new SplFileObject("php://stdin");
+$buffer = null;
 while (!$stdin->eof()) {
   $line = $stdin->current();
   if (preg_match('/^([+-])([^+-]+.*)$/', $line, $reg)) {
     $row = json_decode($reg[2], true);
     if ($reg[1] === '+') {
-      // insert
-      $buffer = array();
-      foreach ($row as $column => $value) {
-        if ($column !== '$table') {
-          if ($value === null) {
-            $buffer[] = "`".$column."` = null";
-          } else {
-            $buffer[] = "`".$column."` = '" . addslashes($value)."'";
-          }
+      if ($buffer) {
+        if ($buffer['$unique'] === $row['$unique']) {
+          echo sql_update($buffer, $row);
+        } else {
+          echo sql_delete($buffer);
+          echo sql_insert($row);
         }
+        $buffer = null;
+      } else {
+        echo sql_insert($row);
       }
-      echo "INSERT INTO `", $row['$table'], "` SET ", implode(", ", $buffer), ";\n";
     } else {
-      // delete
-      $buffer = array();
-      foreach ($row as $column => $value) {
-        if ($column !== '$table') {
-          if ($value !== null) {
-            $buffer[] = "`".$column."` = '" . addslashes($value)."'";
-          }
-        }
+      if ($buffer) {
+        echo sql_delete($buffer);
       }
-      echo "DELETE FROM `", $row['$table'], "` WHERE ", implode(" AND ", $buffer), ";\n";
+      $buffer = $row;
     }
   }
   $stdin->next();

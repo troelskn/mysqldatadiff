@@ -84,9 +84,21 @@ while ($row = mysql_fetch_array($result)) {
 mysql_free_result($result);
 sort($TABLES);
 foreach ($TABLES as $table) {
+  $result = mysql_query('show keys from `'.$table.'` where Key_name = "PRIMARY"');
+  $pkey = array();
+  while ($row = mysql_fetch_assoc($result)) {
+    $pkey[] = $row['Column_name'];
+  }
+  mysql_free_result($result);
+
   $result = mysql_query('SELECT * FROM `'.$table.'`');
   while ($row = mysql_fetch_assoc($result)) {
     $row['$table'] = $table;
+    $unique = array();
+    foreach ($pkey as $column) {
+      $unique[] = $row[$column];
+    }
+    $row['$unique'] = implode(':', $unique);
     echo json_encode($row), "\n";
   }
 }

@@ -83,3 +83,6 @@ while (!$stdin->eof()) {
   }
   $stdin->next();
 }
+if ($buffer) {
+  echo sql_delete($buffer);
+}

@@ -8,7 +8,7 @@ function sql_delete($row) {
   foreach ($row as $column => $value) {
     if ($column !== '$table' && $column !== '$unique') {
       if ($value !== null) {
-        $buffer[] = "`".$column."` = '" . addslashes($value)."'";
+        $buffer[] = "`".$column."` = '" . mysql_escape_string($value)."'";
       }
     }
   }
@@ -22,7 +22,7 @@ function sql_insert($row) {
       if ($value === null) {
         $buffer[] = "`".$column."` = NULL";
       } else {
-        $buffer[] = "`".$column."` = '" . addslashes($value)."'";
+        $buffer[] = "`".$column."` = '" . mysql_escape_string($value)."'";
       }
     }
   }
@@ -42,13 +42,13 @@ function sql_update($from, $to) {
         if ($value === null) {
           $conditions[] = "`".$column."` IS NULL";
         } else {
-          $conditions[] = "`".$column."` = '" . addslashes($value)."'";
+          $conditions[] = "`".$column."` = '" . mysql_escape_string($value)."'";
         }
       } else {
         if ($value === null) {
           $values[] = "`".$column."` = NULL";
         } else {
-          $values[] = "`".$column."` = '" . addslashes($value)."'";
+          $values[] = "`".$column."` = '" . mysql_escape_string($value)."'";
         }
       }
     }
